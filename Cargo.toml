@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "src/note_sharing_backend"
+]
+resolver = "2"

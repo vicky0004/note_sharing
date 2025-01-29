@@ -1,0 +1,27 @@
+{
+  "canisters": {
+    "note_sharing_backend": {
+      "candid": "src/note_sharing_backend/note_sharing_backend.did",
+      "package": "note_sharing_backend",
+      "type": "rust"
+    },
+    "note_sharing_frontend": {
+      "dependencies": [
+        "note_sharing_backend"
+      ],
+      "source": [
+        "src/note_sharing_frontend/dist"
+      ],
+      "type": "assets",
+      "workspace": "note_sharing_frontend"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}
