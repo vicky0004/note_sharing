@@ -27,12 +27,16 @@ function Home() {
         const save_result = await note_sharing_backend.add_note(inputContent);
         fetchnotes();
         setInputContent("");
-        toast.success("Saved successfully", {
-            style: {
-                minWidth: '250px',
-                fontSize: 'smaller'
-            },
-        });
+        if (save_result.Ok) {
+            toast.success("updated successfully", {
+                style: {
+                    minWidth: '250px',
+                    fontSize: 'smaller'
+                },
+            });
+        } else {
+            toast.error(update_result.Err);
+        }
     }
     const handleDelete = async (id) => {
         const delete_result = await note_sharing_backend.delete_note(id);
@@ -77,6 +81,7 @@ function Home() {
         setInputContent("");
         setUpdatingNote([]);
         setIsUpdating(false);
+        console.log("canceled..")
     }
     const handleShare = async (e) => {
         e.preventDefault();
@@ -136,22 +141,21 @@ function Home() {
                 </div>
             </div>
             <div className='container mx-auto w-100 h-100  px-10'>
-                <h1 className='bg-gray-500 px-5 text-white rounded'>Your Notes</h1>
+                <h1 className='bg-gray-500 px-5 text-white rounded text-2xl'>Your Notes</h1>
                 <div class="grid grid-cols-3 gap-5 p-10 " >
-                    {Notes.map((note) => (
-                        <div key={note.id} className="card bg-base-100 w-96 shadow-xl">
+                    {Notes.map((note,index) => (
+                        <div key={note.id} className="card bg-base-100 w-75 shadow-xl">
                             <div className="card-body">
-                                <h2 className="card-title">{note.id}</h2>
+                                <h2 className="card-title">{index+1}</h2>
                                 <p>{note.content}</p>
                                 {principal == note.owner ?
                                     <div className="card-actions justify-end">
-
                                         <button className="btn btn-success btn-sm" onClick={() => document.getElementById(`my_modal_${note.id}`).showModal()}>Share With</button>
                                         <button className="btn btn-error btn-sm" onClick={() => handleDelete(note.id)}>Delete</button>
                                         <button className='btn btn-sm btn-info' onClick={() => loadUpdateData(note.id)}>Update</button>
                                     </div>
                                     :
-                                    <button className='btn btn-sm btn-primary btn-disabled'>Shared with you</button>
+                                    <button className='btn btn-sm btn-primary btn-disabled'>Shared with you(read-only)</button>
                                 }
                             </div>
                             <dialog id={`my_modal_${note.id}`} className="modal">

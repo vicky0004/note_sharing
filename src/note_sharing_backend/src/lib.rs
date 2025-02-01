@@ -5,12 +5,15 @@ use ic_stable_structures::{
     memory_manager::{MemoryId, MemoryManager, VirtualMemory},
     Storable, StableBTreeMap, DefaultMemoryImpl, storable::Bound
 };
+use uuid::Uuid;
+use ic_cdk::api::management_canister::main::raw_rand;
+use std::convert::TryInto;
 use std::{borrow::Cow, cell::RefCell};
 type Memory = VirtualMemory<DefaultMemoryImpl>;
 
 #[derive(CandidType, Serialize, Deserialize, Clone)]
 struct Note {
-    id: u32,
+    id: String,
     content: String,
     owner: String,
     shared_with: Vec<String>,
@@ -30,11 +33,27 @@ impl Storable for Note {
 thread_local! {
     static MEMORY_MANAGER: RefCell<MemoryManager<DefaultMemoryImpl>> = RefCell::new(
         MemoryManager::init(DefaultMemoryImpl::default()));
-    static NOTES: RefCell<StableBTreeMap<u32, Note, Memory>> = RefCell::new(
+    static NOTES: RefCell<StableBTreeMap<String, Note, Memory>> = RefCell::new(
         StableBTreeMap::init(
             MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(0))),
         )
     );
+}
+
+async fn generate_128bit_random() -> Result<u128, String> {
+    let (random_bytes,) = raw_rand()
+        .await
+        .map_err(|e| format!("Failed to get random bytes: {:?}", e))?;
+
+    // Ensure we have 16 bytes (128 bits)
+    if random_bytes.len() < 16 {
+        return Err("Insufficient random bytes".to_string());
+    }
+
+    // Convert the first 16 bytes into a u128 value
+    let random_value = u128::from_le_bytes(random_bytes[..16].try_into().unwrap());
+
+    Ok(random_value)
 }
 
 #[query]
@@ -49,7 +68,7 @@ fn get_notes() -> Vec<Note> {
 }
 
 #[query]
-fn get_note_by_id(id: u32) -> Option<Note> {
+fn get_note_by_id(id: String) -> Option<Note> {
     let caller = api::caller().to_string();
     NOTES.with(|notes| {
         notes.borrow().get(&id).filter(|note| note.owner == caller || note.shared_with.contains(&caller))
@@ -57,21 +76,30 @@ fn get_note_by_id(id: u32) -> Option<Note> {
 }
 
 #[update]
-fn add_note(content: String) {
-    let len = NOTES.with(|notes| notes.borrow().len() as u32);
+async fn add_note(content: String)->Result<String,String> {
+    
+    let random_number = match generate_128bit_random().await {
+        Ok(num) => num,
+        Err(_) => 0, // Default value in case of error
+    };
+    if random_number == 0 {
+        return Err("Something went wrong try again".to_string());
+    }
+    let new_uuid = Uuid::from_u128(random_number);
     let note = Note {
-        id: len+1 ,
+        id: new_uuid.to_string() ,
         content,
         owner: api::caller().to_string(),
         shared_with: Vec::new(),
     };
     NOTES.with(|notes| {
-        notes.borrow_mut().insert(note.id, note);
+        notes.borrow_mut().insert(new_uuid.to_string(), note);
     });
+    return Ok("success".to_string());
 }
 
 #[update]
-fn update_note(id: u32, content: String) -> Result<String, String> {
+fn update_note(id: String, content: String) -> Result<String, String> {
     let caller = api::caller().to_string();
     NOTES.with(|notes| {
         let mut notes = notes.borrow_mut();
@@ -90,7 +118,7 @@ fn update_note(id: u32, content: String) -> Result<String, String> {
 }
 
 #[update]
-fn delete_note(id: u32) -> Result<String, String> {
+fn delete_note(id: String) -> Result<String, String> {
     let caller = api::caller().to_string();
     NOTES.with(|notes| {
         let mut notes = notes.borrow_mut();
@@ -108,7 +136,7 @@ fn delete_note(id: u32) -> Result<String, String> {
 }
 
 #[update]
-fn share_note(id: u32, user: String) -> Result<String, String> {
+fn share_note(id: String, user: String) -> Result<String, String> {
     let caller = api::caller().to_string();
     NOTES.with(|notes| {
         let mut notes = notes.borrow_mut();
